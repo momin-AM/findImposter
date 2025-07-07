@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Start Game</title>
+  <!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+   <style>
+  :root {
+    --accent: #ffdc91;
+    --primary-bg: #121212;
+    --secondary-bg: #2c2c5e;
+    --text-color: #ffffff;
+    --highlight: #f54291;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', sans-serif;
+  }
+
+  body {
+    background: radial-gradient(circle, var(--primary-bg), var(--secondary-bg));
+    color: var(--text-color);
+    min-height: 100vh;
+    padding: 2vh 4vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+  }
+
+  h1 {
+    font-size: 5.5vw;
+    color: var(--highlight);
+    margin-top: 4vh;
+    text-shadow: 2px 2px 6px #000;
+  }
+
+  h2 {
+    font-size: 4.5vw;
+    margin-bottom: 6vh;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  button {
+    background: linear-gradient(135deg, var(--accent), #ffeebd);
+    color: #000;
+    border: none;
+    padding: 3.5vh 0;
+    margin: 2vh 0;
+    border-radius: 15px;
+    font-size: 4.5vw;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 0 12px var(--accent);
+    width: 90vw;
+    max-width: 400px;
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+  }
+
+  button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 16px var(--accent);
+  }
+
+  input {
+    width: 85vw;
+    max-width: 380px;
+    padding: 3vh;
+    margin-top: 2vh;
+    border-radius: 12px;
+    border: 2px solid var(--accent);
+    background-color: #fff;
+    color: #222;
+    font-size: 4vw;
+    text-align: center;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  #roomInfo, #playerInfo {
+    font-size: 4.5vw;
+    margin-top: 4vh;
+    color: #a3ffe9;
+    text-shadow: 1px 1px #000;
+  }
+</style>
+
+
+
+</head>
+<body>
+    <h1>🚨 Catch the Imposter!</h1>
+<h2>Choose your crew size or join a mission!</h2>
+
+  <h1>🚀 Start a Game</h1>
+
+  <!-- Create Game Buttons -->
+  <div>
+    <button onclick="createGame(3)">3 Players</button>
+    <button onclick="createGame(4)">4 Players</button>
+    <button onclick="createGame(5)">5 Players</button>
+    <button onclick="createGame(6)">6 Players</button>
+  </div>
+
+  <!-- Join Game Section -->
+  <div style="margin-top: 20px;">
+    <h3>🔑 Join with Room ID</h3>
+    <input type="text" id="roomIdInput" placeholder="Enter Room ID" />
+    <button onclick="joinGame()">Join Game</button>
+  </div>
+
+  <script>
+     // 🔥 Firebase Config
+  const firebaseConfig = {
+    apiKey: "AIzaSyDhl5bzjlPmpRLxwnlcpbmLsR42IMXImmo",
+    authDomain: "impostergame-b0238.firebaseapp.com",
+    projectId: "impostergame-b0238",
+    storageBucket: "impostergame-b0238.appspot.com",
+    messagingSenderId: "487298497100",
+    appId: "1:487298497100:web:af2073a83ce3e26b1552e9",
+    measurementId: "G-DN3Y9665RV"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+    function createGame(players) {
+  const roomId = Math.random().toString(36).substr(2, 6);
+  localStorage.setItem('roomId', roomId);
+  localStorage.setItem('playerCount', players);
+
+  // Save crew size to Firestore upfront
+  firebase.firestore().collection('rooms').doc(roomId).set({
+    players: [],
+    maxPlayers: players
+  }).then(() => {
+    window.location.href = 'files/lobby.html';
+  });
+}
+
+    function joinGame() {
+  const roomId = document.getElementById('roomIdInput').value;
+  if (roomId) {
+    localStorage.setItem('roomId', roomId);
+    // ✅ Optional: Set a default value or fetch from Firestore later
+    localStorage.setItem('playerCount', 4); // or leave this out if lobby will fetch real value
+    window.location.href = 'files/lobby.html';
+  }
+}
+
+  </script>
+</body>
+</html>
