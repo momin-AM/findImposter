@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Game Room</title>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
+  <style>
+    :root {
+      --bg: #1c1c3c;
+      --panel: #2a2a60;
+      --text: #ffffff;
+      --accent: #ffdc91;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #imagePanel {
+  width: 100vw;
+  height: 20vh; /* reduced from 30vh */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--panel);
+}
+
+    #imagePanel img {
+      max-height: 100%;
+      max-width: 100%;
+      object-fit: contain;
+      border-radius: 10px;
+      box-shadow: 0 0 12px #000;
+    }
+
+    #chatBox {
+  width: 100vw;
+  height: 55vh; /* increased from 45vh */
+  overflow-y: auto;
+  background-color: #101032;
+  margin-top: 1vh;
+  padding: 1vh 2vw;
+  border-radius: 10px;
+  box-shadow: 0 0 10px #000;
+}
+
+   #chatBox p {
+  margin: 1vh 0;
+  font-size: 2.5rem; /* larger font for readability */
+  line-height: 1.4;
+  color: #c1ffd7;
+  word-wrap: break-word;
+}
+
+  #chatBox::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  #chatBox::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 10px;
+  }
+
+  #chatBox::-webkit-scrollbar-track {
+    background: #2a2a60;
+  }
+
+#chatControls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1.5vh;
+  gap: 1vw;
+}
+
+#chatInput {
+  width: 75vw;
+  padding: 1vh;
+  border-radius: 8px;
+  border: 2px solid var(--accent);
+  font-size: 1.5rem;
+}
+
+#sendBtn {
+  padding: 1vh 2vw;
+  font-size: 1.7rem;
+  border-radius: 8px;
+  border: none;
+  background-color: var(--accent);
+  color: #000;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--accent);
+}
+
+#votePanel {
+  margin-top: 2vh;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1vw;
+  font-size: 1.5rem;
+  color: var(--accent);
+}
+
+#votePanel p {
+  margin: 0;
+  font-weight: bold;
+  font-size: 1.8rem;
+}
+
+#voteButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2vw;
+}
+
+
+.voteBtn {
+  margin: 0.5vh;
+  padding: 1vh 2vw;
+  border: none;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  background-color: #f54291;
+  color: #fff;
+  box-shadow: 0 0 6px #000;
+}
+
+
+    #playerList {
+      visibility: hidden;
+      margin-top: 2vh;
+      font-size: 1rem;
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <h1>🚀 Spot the Odd One!</h1>
+  <div id="imagePanel"><img id="gameImage" src="" alt="Match image" /></div>
+  <div id="chatBox"></div>
+  <div id="chatControls">
+  <input id="chatInput" placeholder="Type your message..." />
+  <button id="sendBtn">Send</button>
+</div>
+
+<div id="votePanel">
+  <p>Who is imposter:</p>
+  <div id="voteButtons"></div>
+</div>
+
+
+
+  <script>
+  // Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyDhl5bzjlPmpRLxwnlcpbmLsR42IMXImmo",
+    authDomain: "impostergame-b0238.firebaseapp.com",
+    projectId: "impostergame-b0238",
+    storageBucket: "impostergame-b0238.appspot.com",
+    messagingSenderId: "487298497100",
+    appId: "1:487298497100:web:af2073a83ce3e26b1552e9"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const storage = firebase.storage();
+
+  const roomId = localStorage.getItem('roomId');
+  const playerNum = parseInt(localStorage.getItem('playerNumber'));
+
+  
+  
+  const imageRef = document.getElementById('gameImage');
+  const chatBox = document.getElementById('chatBox');
+  const chatInput = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('sendBtn');
+  
+  const voteButtons = document.getElementById("voteButtons");
+  const votePanel = document.getElementById("votePanel");
+
+  db.collection('rooms').doc(roomId).onSnapshot(snapshot => {
+  const data = snapshot.data();
+  const resultText = data.gameResult;
+  const imposterNum = data.imposterNumber;
+
+  if (resultText && typeof imposterNum !== "undefined") {
+    if (playerNum === imposterNum && resultText.includes("Imposter caught")) {
+      votePanel.innerHTML = `<p>😵 You got caught!</p>`;
+    } else {
+      votePanel.innerHTML = `<p>${resultText}</p>`;
+    }
+  }
+});
+
+
+  // Fetch image for this player
+  async function fetchImage() {
+    const roomDoc = await db.collection('rooms').doc(roomId).get();
+    const data = roomDoc.data();
+    const playerData = data.playerImages?.find(p => p.number === playerNum);
+    if (playerData && playerData.imageURL) {
+      imageRef.src = playerData.imageURL;
+    } else {
+      imageRef.alt = "Image not available";
+    }
+  }
+
+  // Load all player numbers and render vote buttons
+  async function loadPlayers() {
+    const roomDoc = await db.collection('rooms').doc(roomId).get();
+    const players = roomDoc.data().players || [];
+    const others = players.filter(p => p.number !== playerNum);
+
+    // Show player list
+    const playerList = document.createElement('div');
+    playerList.id = "playerList";
+    playerList.textContent = "Players: " + others.map(p => `No. ${p.number}`).join(", ");
+    document.body.appendChild(playerList);
+
+    // Create vote buttons
+    voteButtons.innerHTML = "";
+    others.forEach(p => {
+  const btn = document.createElement("button");
+  btn.className = "voteBtn";
+  btn.textContent = `No. ${p.number}`;
+  
+  btn.onclick = () => {
+    castVote(p.number);
+    btn.disabled = true; // 🔒 Prevent repeat voting
+  };
+
+  voteButtons.appendChild(btn);
+});
+
+  }
+
+  async function castVote(targetNumber) {
+  // Submit vote
+  await db.collection('rooms').doc(roomId).collection('votes').add({
+    voter: playerNum,
+    target: targetNumber,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  votePanel.innerHTML = `<p>✅ You voted for No. ${targetNumber}</p>`;
+
+  // Check if all players have voted
+  const votesSnapshot = await db.collection('rooms').doc(roomId).collection('votes').get();
+  const voteCount = votesSnapshot.size;
+
+  const roomDoc = await db.collection('rooms').doc(roomId).get();
+  const allPlayers = roomDoc.data().players || [];
+
+  if (voteCount >= allPlayers.length) {
+    revealImposterResult(roomDoc);
+  }
+}
+
+
+  // Real-time chat
+  db.collection('rooms').doc(roomId).collection('chat')
+    .orderBy('timestamp')
+    .onSnapshot(snapshot => {
+      chatBox.innerHTML = "";
+      snapshot.forEach(doc => {
+        const msg = doc.data();
+        const p = document.createElement('p');
+        p.textContent = `No. ${msg.sender}: ${msg.text}`;
+        chatBox.appendChild(p);
+      });
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+  // Send message
+  function sendMessage() {
+    const text = chatInput.value.trim();
+    if (text) {
+      db.collection('rooms').doc(roomId).collection('chat').add({
+        sender: playerNum,
+        text,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      chatInput.value = "";
+    }
+  }
+
+  sendBtn.onclick = sendMessage;
+
+  chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      sendMessage();
+    }
+  });
+
+  // Init
+  window.onload = () => {
+    fetchImage();
+    loadPlayers();
+  };
+ async function revealImposterResult(roomDoc) {
+  const votesSnapshot = await db.collection('rooms').doc(roomId).collection('votes').get();
+
+  const tally = {};
+  votesSnapshot.forEach(doc => {
+    const vote = doc.data().target;
+    tally[vote] = (tally[vote] || 0) + 1;
+  });
+
+  const sortedVotes = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+  const mostVotedNumber = parseInt(sortedVotes[0][0]);
+
+  const imageData = roomDoc.data().playerImages;
+  const imposterPlayer = imageData.find(p => p.imageURL !== imageData[0].imageURL);
+  const imposterNumber = imposterPlayer?.number;
+
+  let resultText;
+  if (mostVotedNumber === imposterNumber) {
+    resultText = `🕵️ Imposter caught! It was No. ${imposterNumber} 🎯`;
+  } else {
+    resultText = `😶 Imposter escaped! Majority voted for No. ${mostVotedNumber}`;
+  }
+
+  // ✅ Write result to Firestore AFTER generating it
+  await db.collection('rooms').doc(roomId).update({
+    gameResult: resultText,
+    imposterNumber: imposterNumber
+  });
+}
+
+
+</script>
+
+</body>
+</html>

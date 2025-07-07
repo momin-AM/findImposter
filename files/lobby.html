@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Lobby</title>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+
+  <style>
+    :root {
+      --accent: #ffdc91;
+      --primary-bg: #121212;
+      --secondary-bg: #2c2c5e;
+      --text-color: #ffffff;
+      --highlight: #f54291;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle, var(--primary-bg), var(--secondary-bg));
+      color: var(--text-color);
+      min-height: 100vh;
+      padding: 2vh 4vw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 5.5vw;
+      color: var(--highlight);
+      margin-top: 4vh;
+      text-shadow: 2px 2px 6px #000;
+    }
+
+    #roomInfo,
+    #playerInfo {
+      font-size: 4.5vw;
+      margin-top: 2vh;
+      color: #a3ffe9;
+      text-shadow: 1px 1px #000;
+    }
+
+    #joinedDisplay {
+      font-size: 4.2vw;
+      margin-top: 3vh;
+      color: var(--accent);
+    }
+
+    #status {
+      margin-top: 2vh;
+      font-size: 4vw;
+      color: #ff8;
+      font-style: italic;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🚨 Catch the Imposter!</h1>
+  <div id="roomInfo">🆔 Room ID: loading...</div>
+  <div id="playerInfo"></div>
+  <div id="joinedDisplay">Loading joined player count...</div>
+  <div id="status">Waiting for players...</div>
+
+  <script>
+  // 🔥 Firebase Config
+  const firebaseConfig = {
+    apiKey: "AIzaSyDhl5bzjlPmpRLxwnlcpbmLsR42IMXImmo",
+    authDomain: "impostergame-b0238.firebaseapp.com",
+    projectId: "impostergame-b0238",
+    storageBucket: "impostergame-b0238.appspot.com",
+    messagingSenderId: "487298497100",
+    appId: "1:487298497100:web:af2073a83ce3e26b1552e9",
+    measurementId: "G-DN3Y9665RV"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  const roomId = localStorage.getItem('roomId');
+  const roomRef = db.collection('rooms').doc(roomId);
+  let maxPlayers;
+
+  roomRef.get().then(async doc => {
+    maxPlayers = doc.data().maxPlayers;
+
+    if (!roomId || !maxPlayers) {
+      document.getElementById("status").textContent = "❌ Room ID or player count missing.";
+      throw new Error("Missing room info");
+    }
+
+    await joinRoom();
+
+    roomRef.onSnapshot(async snapshot => {
+      const data = snapshot.data();
+      const joined = data.players?.length || 0;
+      document.getElementById("joinedDisplay").textContent = `👥 Players Joined: ${joined}/${maxPlayers}`;
+
+      if (joined >= maxPlayers) {
+        document.getElementById("status").textContent = "✅ Match starting...";
+
+        // 🖼️ Assign image logic before redirection
+        if (!data.playerImages) {
+          const imagePool = [
+            "../pics/common1.jpeg",
+            "../pics/common2.jpeg",
+            "../pics/common3.jpeg",
+            "../pics/odd1.jpeg",
+            "../pics/odd2.jpeg",
+            "../pics/odd3.jpeg"
+          ];
+
+          const commonImg = imagePool[Math.floor(Math.random() * imagePool.length)];
+          let oddImg;
+          do {
+            oddImg = imagePool[Math.floor(Math.random() * imagePool.length)];
+          } while (oddImg === commonImg);
+
+          const allPlayers = data.players;
+          const randomPlayer = allPlayers[Math.floor(Math.random() * allPlayers.length)];
+          const imposterId = randomPlayer.id;
+
+          const playerImages = allPlayers.map(p => ({
+            number: p.number,
+            imageURL: p.id === imposterId ? oddImg : commonImg
+          }));
+
+          await roomRef.update({ playerImages });
+        }
+
+        setTimeout(() => {
+          window.location.href = "game.html";
+        }, 1500);
+      }
+    });
+  });
+
+  async function joinRoom() {
+    try {
+      const roomDoc = await roomRef.get();
+      if (!roomDoc.exists) {
+        await roomRef.set({ players: [] });
+      }
+
+      const data = roomDoc.data();
+      const currentPlayers = data.players || [];
+
+      let playerId = localStorage.getItem("playerId");
+      if (!playerId) {
+        playerId = Date.now().toString();
+        localStorage.setItem("playerId", playerId);
+      }
+
+      let existingPlayer = currentPlayers.find(p => p.id === playerId);
+
+      if (!existingPlayer) {
+        const newPlayer = { id: playerId, number: currentPlayers.length + 1 };
+        await roomRef.update({
+          players: firebase.firestore.FieldValue.arrayUnion(newPlayer)
+        });
+        localStorage.setItem("playerNumber", newPlayer.number);
+      } else {
+        localStorage.setItem("playerNumber", existingPlayer.number);
+      }
+
+      document.getElementById("roomInfo").textContent = `🆔 Room ID: ${roomId}`;
+      document.getElementById("playerInfo").textContent = `🎮 You are No. ${localStorage.getItem("playerNumber")}`;
+    } catch (err) {
+      console.error("Error joining room:", err);
+      document.getElementById("status").textContent = "❌ Failed to join room.";
+    }
+  }
+</script>
+
+
+</body>
+
+</html>
